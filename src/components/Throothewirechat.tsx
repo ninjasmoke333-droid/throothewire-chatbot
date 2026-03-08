@@ -98,6 +98,7 @@ export default function Throothewirechat() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const pulseInterval = useRef<ReturnType<typeof setInterval> | null>(null);
   const currentAudio = useRef<HTMLAudioElement | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
 
   const [user, setUser] = useState<User | null>(null);
   const [authView, setAuthView] = useState<AuthView>(null);
@@ -112,6 +113,16 @@ export default function Throothewirechat() {
   const [hasSentFirstMessage, setHasSentFirstMessage] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const zoomOutTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // ── Unlock desktop audio on user gesture
+  const unlockAudio = () => {
+    if (!audioContextRef.current) {
+      audioContextRef.current = new AudioContext();
+    }
+    if (audioContextRef.current.state === "suspended") {
+      audioContextRef.current.resume();
+    }
+  };
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -282,6 +293,7 @@ export default function Throothewirechat() {
   };
 
   const sendMessage = async (messageText = input) => {
+    unlockAudio(); // ← unlocks desktop audio on every send click
     if (!messageText.trim() || isLoading) return;
     if (requestCount >= 25) {
       setMessages((prev) => [...prev, { role: "assistant", content: "Neural overload detected, friend. Give me a moment to recover." }]);
@@ -380,9 +392,7 @@ export default function Throothewirechat() {
     >
       {user ? (
         <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-          <div style={{ fontFamily: mono, fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.15em", color: accent }}>
-            NEURAL LINK ESTABLISHED
-          </div>
+          <div style={{ fontFamily: mono, fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.15em", color: accent }}>NEURAL LINK ESTABLISHED</div>
           <div style={{ fontFamily: sans, fontSize: "13px", color: lightGrey }}>{user.email}</div>
           {memories.length > 0 && (
             <div style={{ borderTop: "1px solid hsl(220,10%,20%)", paddingTop: "12px" }}>
@@ -452,10 +462,9 @@ export default function Throothewirechat() {
         overflow: "hidden",
       }}
     >
-      {/* Grid background */}
       <div style={{ position: "absolute", inset: 0, opacity: 0.03, backgroundImage: "linear-gradient(hsl(174,80%,40%) 1px, transparent 1px), linear-gradient(90deg, hsl(174,80%,40%) 1px, transparent 1px)", backgroundSize: "40px 40px" }} />
 
-      {/* Mini robot top left — hidden on small screens via CSS */}
+      {/* Mini robot — hidden on small screens */}
       <div
         className="mini-robot"
         style={{
@@ -543,7 +552,6 @@ export default function Throothewirechat() {
             background: darkCard,
           }}
         >
-          {/* Background video */}
           <video
             key={videoMode}
             ref={videoRef}
@@ -646,7 +654,7 @@ export default function Throothewirechat() {
                       {msg.content}
                     </p>
                     {msg.role === "assistant" && (
-                      <button onClick={() => speak(msg.content)}
+                      <button onClick={() => { unlockAudio(); speak(msg.content); }}
                         style={{ marginTop: "5px", background: "transparent", border: "none", color: mutedText, cursor: "pointer", fontFamily: mono, fontSize: "clamp(7px, 1.2vw, 9px)", textTransform: "uppercase", letterSpacing: "0.1em", padding: 0 }}>
                         ▶ replay
                       </button>
@@ -713,7 +721,7 @@ export default function Throothewirechat() {
                 onBlur={(e) => (e.currentTarget.style.borderColor = "hsl(220,10%,22%)")}
               />
               <button
-                onClick={() => sendMessage()}
+                onClick={() => { unlockAudio(); sendMessage(); }}
                 disabled={isLoading || !input.trim() || cooldownTimer > 0}
                 style={{
                   padding: "clamp(8px, 1.5vw, 10px) clamp(12px, 2vw, 18px)",
