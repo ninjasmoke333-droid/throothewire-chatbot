@@ -253,39 +253,32 @@ export default function Throothewirechat() {
   };
 
   const speak = async (text: string) => {
-    if (currentAudio.current) {
-      currentAudio.current.pause();
-      currentAudio.current = null;
-      stopPulse();
-    }
-    try {
-      const clean = text.replace(/[*_~`]/g, "");
-      const response = await fetch(
-        `https://api.elevenlabs.io/v1/text-to-speech/${import.meta.env.VITE_ELEVENLABS_VOICE_ID}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "xi-api-key": import.meta.env.VITE_ELEVENLABS_API_KEY },
-          body: JSON.stringify({
-            text: clean,
-            model_id: "eleven_turbo_v2_5",
-            voice_settings: { stability: 0.4, similarity_boost: 0.85, style: 0.3, use_speaker_boost: true },
-          }),
-        }
-      );
-      if (!response.ok) { console.error("ElevenLabs TTS error:", response.status); return; }
-      const audioBlob = await response.blob();
-      const audioUrl = URL.createObjectURL(audioBlob);
-      const audio = new Audio(audioUrl);
-      currentAudio.current = audio;
-      audio.onplay = startPulse;
-      audio.onended = () => { stopPulse(); URL.revokeObjectURL(audioUrl); currentAudio.current = null; };
-      audio.onerror = stopPulse;
-      await audio.play();
-    } catch (err) {
-      console.error("TTS error:", err);
-      stopPulse();
-    }
-  };
+  if (currentAudio.current) {
+    currentAudio.current.pause();
+    currentAudio.current = null;
+    stopPulse();
+  }
+  try {
+    const clean = text.replace(/[*_~`]/g, "");
+    const response = await fetch(`${PROXY_URL}/api/tts`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text: clean }),
+    });
+    if (!response.ok) { console.error("TTS proxy error:", response.status); return; }
+    const audioBlob = await response.blob();
+    const audioUrl = URL.createObjectURL(audioBlob);
+    const audio = new Audio(audioUrl);
+    currentAudio.current = audio;
+    audio.onplay = startPulse;
+    audio.onended = () => { stopPulse(); URL.revokeObjectURL(audioUrl); currentAudio.current = null; };
+    audio.onerror = stopPulse;
+    await audio.play();
+  } catch (err) {
+    console.error("TTS error:", err);
+    stopPulse();
+  }
+};
 
   const stopSpeech = () => {
     if (currentAudio.current) { currentAudio.current.pause(); currentAudio.current = null; }
