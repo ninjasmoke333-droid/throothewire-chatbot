@@ -265,7 +265,7 @@ export default function Throothewirechat() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ text: clean }),
     });
-    if (!response.ok) { console.error("TTS proxy error:", response.status); return; }
+    if (!response.ok) throw new Error(`TTS failed: ${response.status}`);
     const audioBlob = await response.blob();
     const audioUrl = URL.createObjectURL(audioBlob);
     const audio = new Audio(audioUrl);
@@ -275,8 +275,28 @@ export default function Throothewirechat() {
     audio.onerror = stopPulse;
     await audio.play();
   } catch (err) {
-    console.error("TTS error:", err);
-    stopPulse();
+    console.warn("ElevenLabs unavailable, using browser TTS:", err);
+    // ── Web Speech API fallback
+    if ("speechSynthesis" in window) {
+      startPulse();
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.rate = 0.95;
+      utterance.pitch = 0.85;
+      utterance.volume = 1;
+      // pick a deeper voice if available
+      const voices = window.speechSynthesis.getVoices();
+      const preferred = voices.find(v =>
+        v.name.includes("Google UK English Male") ||
+        v.name.includes("Microsoft David") ||
+        v.name.includes("Daniel")
+      );
+      if (preferred) utterance.voice = preferred;
+      utterance.onend = stopPulse;
+      utterance.onerror = stopPulse;
+      window.speechSynthesis.speak(utterance);
+    } else {
+      stopPulse();
+    }
   }
 };
 
